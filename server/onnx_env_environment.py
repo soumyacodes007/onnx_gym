@@ -17,6 +17,14 @@ except ImportError:
     from tasks import PATCH_CATALOG, PATCH_DEPENDENCY_GRAPHS, PATCH_LOOKUP, PROFILE_SPECS, TASKS, OnnxTask, RequirementSpec
 
 
+MIN_STRICT_SCORE = 0.01
+MAX_STRICT_SCORE = 0.99
+
+
+def _strict_score(value: float) -> float:
+    return round(max(MIN_STRICT_SCORE, min(MAX_STRICT_SCORE, float(value))), 2)
+
+
 class OnnxEnvironment(Environment):
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
 
@@ -51,7 +59,7 @@ class OnnxEnvironment(Environment):
         self._state.selected_patches = {}
         self._state.patch_history = []
         self._state.checks_run = 0
-        self._state.best_score = 0.0
+        self._state.best_score = MIN_STRICT_SCORE
         self._state.submitted = False
         self._state.last_report = {}
         self._state.seen_inspections = []
@@ -217,8 +225,8 @@ class OnnxEnvironment(Environment):
         if conflicts['detected']:
             score -= 0.05 * min(len(conflicts['detected']), 2)
         if not missing and not conflicts['detected']:
-            score = 1.0
-        score = round(max(0.0, min(score, 1.0)), 4)
+            score = MAX_STRICT_SCORE
+        score = _strict_score(score)
 
         return {
             'score': score,
@@ -304,12 +312,12 @@ class OnnxEnvironment(Environment):
             steps_taken=self._state.step_count,
             max_steps=self._task.max_steps,
             current_score=report['score'],
-            best_score=self._state.best_score,
+            best_score=max(self._state.best_score, report['score']),
             success_threshold=self._task.success_threshold,
             is_success=report['score'] >= self._task.success_threshold,
             message=message,
             last_action_error=last_action_error,
-            final_score=report['score'] if done else 0.0,
+            final_score=report['score'] if done else MIN_STRICT_SCORE,
             possible_actions=_ranked_actions(self._task, report, self._state.selected_patches),
             last_report=report,
             done=done,

@@ -27,6 +27,8 @@ LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 BENCHMARK = 'onnx_deployment_surgeon_gym'
 TASK_IDS = ['label_head_dtype_repair', 'embedding_ranker_contract', 'vision_resize_mobile']
 SUCCESS_THRESHOLD = 0.95
+MIN_STRICT_SCORE = 0.01
+MAX_STRICT_SCORE = 0.99
 
 SYSTEM_PROMPT = textwrap.dedent(
     """
@@ -64,6 +66,10 @@ def log_step(step: int, action: str, reward: float, done: bool, error: str | Non
 
 def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
     print(f'[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={",".join(f"{r:.2f}" for r in rewards)}', flush=True)
+
+
+def _strict_score(value: float) -> float:
+    return max(MIN_STRICT_SCORE, min(MAX_STRICT_SCORE, float(value)))
 
 
 async def _connect_env() -> OnnxEnv:
@@ -236,10 +242,10 @@ async def run_task(client: OpenAI | None, task_id: str) -> float:
             steps_taken += 1
             log_step(steps_taken, 'submit_final', reward, result.done, observation.last_action_error or None)
         score = float(observation.final_score or observation.current_score or observation.best_score)
-        score = max(0.0, min(1.0, score))
+        score = _strict_score(score)
         success = bool(observation.is_success) or score >= SUCCESS_THRESHOLD
     except Exception:
-        score = 0.0
+        score = MIN_STRICT_SCORE
         success = False
     finally:
         if env is not None:

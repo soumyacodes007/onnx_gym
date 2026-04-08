@@ -10,13 +10,18 @@ from onnx_env import OnnxAction
 def test_label_head_dtype_repair_success():
     env = OnnxEnvironment()
     obs = env.reset(task_id='label_head_dtype_repair')
-    assert obs.current_score < 0.95
+    assert 0.0 < obs.current_score < 0.95
+    assert 0.0 < obs.best_score < 1.0
+    assert 0.0 < obs.final_score < 1.0
     env.step(OnnxAction(action_type='apply_patch', slot_name='io_contract', patch_id='set_label_output_int64'))
     env.step(OnnxAction(action_type='apply_patch', slot_name='graph_config', patch_id='set_dynamic_batch'))
     env.step(OnnxAction(action_type='apply_patch', slot_name='graph_config', patch_id='set_opset_17'))
     env.step(OnnxAction(action_type='apply_patch', slot_name='graph_config', patch_id='set_extended_optim'))
     obs = env.step(OnnxAction(action_type='submit_final'))
     assert obs.is_success is True
+    assert 0.0 < obs.current_score < 1.0
+    assert 0.0 < obs.best_score < 1.0
+    assert 0.0 < obs.final_score < 1.0
 
 
 def test_embedding_ranker_partial_then_full():
@@ -30,6 +35,9 @@ def test_embedding_ranker_partial_then_full():
     env.step(OnnxAction(action_type='apply_patch', slot_name='graph_config', patch_id='set_extended_optim'))
     obs = env.step(OnnxAction(action_type='submit_final'))
     assert obs.is_success is True
+    assert 0.0 < obs.current_score < 1.0
+    assert 0.0 < obs.best_score < 1.0
+    assert 0.0 < obs.final_score < 1.0
 
 
 def test_vision_resize_mobile_requires_resize_fix():
@@ -43,6 +51,9 @@ def test_vision_resize_mobile_requires_resize_fix():
     env.step(OnnxAction(action_type='apply_patch', slot_name='graph_config', patch_id='prune_debug_initializer'))
     obs = env.step(OnnxAction(action_type='submit_final'))
     assert obs.is_success is True
+    assert 0.0 < obs.current_score < 1.0
+    assert 0.0 < obs.best_score < 1.0
+    assert 0.0 < obs.final_score < 1.0
 
 
 def test_reset_cycles_variant_labels():

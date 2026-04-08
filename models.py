@@ -17,6 +17,9 @@ ActionType = Literal[
 ]
 
 
+MIN_STRICT_SCORE = 0.01
+
+
 class OnnxAction(Action):
     action_type: ActionType = Field(..., description="Structured action type")
     slot_name: str = Field(default="", description="Optional bundle section to target")
@@ -72,13 +75,13 @@ class OnnxObservation(Observation):
     checks_run: int = Field(default=0)
     steps_taken: int = Field(default=0)
     max_steps: int = Field(default=0)
-    current_score: float = Field(default=0.0)
-    best_score: float = Field(default=0.0)
+    current_score: float = Field(default=MIN_STRICT_SCORE)
+    best_score: float = Field(default=MIN_STRICT_SCORE)
     success_threshold: float = Field(default=0.95)
     is_success: bool = Field(default=False)
     message: str = Field(default="")
     last_action_error: str = Field(default="")
-    final_score: float = Field(default=0.0)
+    final_score: float = Field(default=MIN_STRICT_SCORE)
     possible_actions: list[str] = Field(default_factory=list)
     last_report: dict[str, Any] = Field(default_factory=dict)
 
@@ -93,7 +96,7 @@ class OnnxState(State):
     selected_patches: dict[str, str] = Field(default_factory=dict)
     patch_history: list[dict[str, Any]] = Field(default_factory=list)
     checks_run: int = Field(default=0)
-    best_score: float = Field(default=0.0)
+    best_score: float = Field(default=MIN_STRICT_SCORE)
     submitted: bool = Field(default=False)
     last_report: dict[str, Any] = Field(default_factory=dict)
     seen_inspections: list[str] = Field(default_factory=list)

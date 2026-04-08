@@ -11,6 +11,9 @@ except ImportError:
     from models import OnnxAction, OnnxObservation, OnnxState
 
 
+MIN_STRICT_SCORE = 0.01
+
+
 class OnnxEnv(EnvClient[OnnxAction, OnnxObservation, OnnxState]):
     def _step_payload(self, action: OnnxAction) -> dict[str, Any]:
         return {
@@ -70,13 +73,13 @@ class OnnxEnv(EnvClient[OnnxAction, OnnxObservation, OnnxState]):
             checks_run=obs_data.get("checks_run", 0),
             steps_taken=obs_data.get("steps_taken", 0),
             max_steps=obs_data.get("max_steps", 0),
-            current_score=obs_data.get("current_score", 0.0),
-            best_score=obs_data.get("best_score", 0.0),
+            current_score=obs_data.get("current_score", MIN_STRICT_SCORE),
+            best_score=obs_data.get("best_score", MIN_STRICT_SCORE),
             success_threshold=obs_data.get("success_threshold", 0.95),
             is_success=obs_data.get("is_success", False),
             message=obs_data.get("message", ""),
             last_action_error=obs_data.get("last_action_error", ""),
-            final_score=obs_data.get("final_score", 0.0),
+            final_score=obs_data.get("final_score", MIN_STRICT_SCORE),
             possible_actions=obs_data.get("possible_actions", []),
             last_report=obs_data.get("last_report", {}),
             done=payload.get("done", False),
@@ -98,7 +101,7 @@ class OnnxEnv(EnvClient[OnnxAction, OnnxObservation, OnnxState]):
             selected_patches=payload.get("selected_patches", {}),
             patch_history=payload.get("patch_history", []),
             checks_run=payload.get("checks_run", 0),
-            best_score=payload.get("best_score", 0.0),
+            best_score=payload.get("best_score", MIN_STRICT_SCORE),
             submitted=payload.get("submitted", False),
             last_report=payload.get("last_report", {}),
             seen_inspections=payload.get("seen_inspections", []),

@@ -80,7 +80,7 @@ This makes the environment easy to debug in `/web` while still being rich enough
 
 ## Reward design
 
-Final and intermediate scores stay in `[0, 1]` and combine:
+Final and intermediate scores stay in `(0, 1)` and combine:
 
 - severity-weighted requirement resolution
 - endpoint coverage across checker, shape inference, and ORT loading
