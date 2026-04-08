@@ -21,7 +21,7 @@ except ModuleNotFoundError:
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
 ENV_BASE_URL = os.getenv("ENV_BASE_URL")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 BENCHMARK = 'onnx_deployment_surgeon_gym'
@@ -164,10 +164,10 @@ def _deterministic_policy(observation: Any) -> dict[str, Any] | None:
 
 
 def _call_llm(client: OpenAI | None, observation: Any) -> dict[str, Any]:
-    deterministic = _deterministic_policy(observation)
-    if deterministic is not None:
-        return deterministic
     if client is None:
+        deterministic = _deterministic_policy(observation)
+        if deterministic is not None:
+            return deterministic
         return {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'llm unavailable'}
     try:
         response = client.chat.completions.create(
@@ -181,6 +181,9 @@ def _call_llm(client: OpenAI | None, observation: Any) -> dict[str, Any]:
         end = text.rfind('}') + 1
         payload = json.loads(text[start:end])
     except Exception:
+        deterministic = _deterministic_policy(observation)
+        if deterministic is not None:
+            return deterministic
         return {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'fallback'}
     allowed = {'inspect_task', 'inspect_bundle', 'inspect_patches', 'inspect_report', 'apply_patch', 'validate_bundle', 'submit_final'}
     if payload.get('action_type') not in allowed:
@@ -258,7 +261,9 @@ async def run_task(client: OpenAI | None, task_id: str) -> float:
 
 
 async def main() -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY) if API_KEY else None
+    if not API_KEY:
+        raise RuntimeError("Missing API_KEY or HF_TOKEN for OpenAI client")
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     scores = []
     for task_id in TASK_IDS:
         scores.append(await run_task(client, task_id))

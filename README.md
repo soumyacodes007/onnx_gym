@@ -114,16 +114,18 @@ Open:
 
 The root `inference.py`:
 - uses the OpenAI client,
-- reads `HF_TOKEN`, `API_BASE_URL`, `MODEL_NAME`, and optional `ENV_BASE_URL` / `LOCAL_IMAGE_NAME`,
+- reads `API_KEY` (preferred) or `HF_TOKEN` (fallback), plus `API_BASE_URL`, `MODEL_NAME`, and optional `ENV_BASE_URL` / `LOCAL_IMAGE_NAME`,
 - emits strict `[START]`, `[STEP]`, and `[END]` logs.
 
 Expected environment variables:
 
 ```bash
-HF_TOKEN=...
+API_KEY=...
 API_BASE_URL=https://router.huggingface.co/v1
 MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 ```
+
+If your runner still exposes `HF_TOKEN` instead of `API_KEY`, `inference.py` accepts that as a fallback.
 
 ## Docker
 
@@ -135,7 +137,8 @@ docker run -p 7860:7860 onnx-surgeon
 ## Hugging Face Spaces
 
 Recommended secrets:
-- `HF_TOKEN`
+- `API_KEY`
+- `HF_TOKEN` (only if your platform provides this instead of `API_KEY`)
 - `API_BASE_URL`
 - `MODEL_NAME`
 
