@@ -1,0 +1,8 @@
+spec_version: 1
+name: onnx_deployment_surgeon_gym
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+description: "Repair broken ONNX deployment bundles for mobile, retrieval, and vision profiles"
+tasks: [label_head_dtype_repair, embedding_ranker_contract, vision_resize_mobile]
