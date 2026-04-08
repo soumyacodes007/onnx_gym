@@ -21,14 +21,12 @@ except ModuleNotFoundError:
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN")
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 ENV_BASE_URL = os.getenv("ENV_BASE_URL")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 BENCHMARK = 'onnx_deployment_surgeon_gym'
 TASK_IDS = ['label_head_dtype_repair', 'embedding_ranker_contract', 'vision_resize_mobile']
 SUCCESS_THRESHOLD = 0.95
-
-client = OpenAI(api_key=HF_TOKEN or 'hf-missing', base_url=API_BASE_URL)
 
 SYSTEM_PROMPT = textwrap.dedent(
     """
@@ -159,10 +157,12 @@ def _deterministic_policy(observation: Any) -> dict[str, Any] | None:
     return None
 
 
-def _call_llm(observation: Any) -> dict[str, Any]:
+def _call_llm(client: OpenAI | None, observation: Any) -> dict[str, Any]:
     deterministic = _deterministic_policy(observation)
     if deterministic is not None:
         return deterministic
+    if client is None:
+        return {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'llm unavailable'}
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -194,24 +194,26 @@ def _action_to_string(payload: dict[str, Any]) -> str:
     return '|'.join(parts)
 
 
-async def run_task(env: OnnxEnv, task_id: str) -> float:
+async def run_task(client: OpenAI | None, task_id: str) -> float:
     log_start(task_id, BENCHMARK, MODEL_NAME)
-    result = await env.reset(task_id=task_id)
-    observation = result.observation
     rewards: list[float] = []
     steps_taken = 0
     score = 0.0
     success = False
     last_was_patch = False
     seen_patch_ids: set[str] = set()
+    env: OnnxEnv | None = None
     try:
+        env = await _connect_env()
+        result = await env.reset(task_id=task_id)
+        observation = result.observation
         for step in range(1, (observation.max_steps or 10) + 1):
             if last_was_patch:
                 payload = {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'forced validation after patch'}
             elif observation.current_score >= observation.success_threshold and observation.checks_run > 0:
                 payload = {'action_type': 'submit_final', 'slot_name': '', 'patch_id': '', 'rationale': 'score already good'}
             else:
-                payload = _call_llm(observation)
+                payload = _call_llm(client, observation)
                 if payload.get('action_type') == 'apply_patch' and payload.get('patch_id') in seen_patch_ids:
                     payload = {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'avoid repeating same patch'}
             action = OnnxAction(action_type=payload.get('action_type', 'validate_bundle'), slot_name=payload.get('slot_name', ''), patch_id=payload.get('patch_id', ''), rationale=payload.get('rationale', ''))
@@ -236,24 +238,25 @@ async def run_task(env: OnnxEnv, task_id: str) -> float:
         score = float(observation.final_score or observation.current_score or observation.best_score)
         score = max(0.0, min(1.0, score))
         success = bool(observation.is_success) or score >= SUCCESS_THRESHOLD
+    except Exception:
+        score = 0.0
+        success = False
     finally:
+        if env is not None:
+            try:
+                await env.close()
+            except Exception:
+                pass
         log_end(success, steps_taken, score, rewards)
     return score
 
 
 async def main() -> None:
-    env = await _connect_env()
-    try:
-        scores = []
-        for task_id in TASK_IDS:
-            scores.append(await run_task(env, task_id))
-    finally:
-        try:
-            await env.close()
-        except Exception:
-            pass
-    if scores:
-        print(f'Overall average score: {sum(scores) / len(scores):.2f}', flush=True)
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY) if API_KEY else None
+    scores = []
+    for task_id in TASK_IDS:
+        scores.append(await run_task(client, task_id))
+    _ = scores
 
 
 if __name__ == '__main__':

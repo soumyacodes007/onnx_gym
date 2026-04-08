@@ -1,6 +1,13 @@
 FROM python:3.11-slim
 
-ENV PYTHONUNBUFFERED=1     UV_LINK_MODE=copy     PIP_NO_CACHE_DIR=1     ENABLE_WEB_INTERFACE=true     PATH="/root/.local/bin:${PATH}"     PYTHONPATH="/app/env"
+ENV PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    PIP_NO_CACHE_DIR=1 \
+    ENABLE_WEB_INTERFACE=true \
+    VIRTUAL_ENV="/app/env/.venv" \
+    UV_PROJECT_ENVIRONMENT="/app/env/.venv" \
+    PATH="/app/env/.venv/bin:/root/.local/bin:${PATH}" \
+    PYTHONPATH="/app/env"
 
 WORKDIR /app/env
 
