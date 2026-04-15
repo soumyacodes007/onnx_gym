@@ -30,6 +30,10 @@ TASK_IDS = [
 ]
 
 
+def _log(msg: str) -> None:
+    print(msg, flush=True)
+
+
 class RandomPolicy:
     def __init__(self, seed: int = 7) -> None:
         self._rng = random.Random(seed)
@@ -130,6 +134,7 @@ async def run_episode(env: OnnxEnv, task_id: str, policy) -> dict:
     obs = result.observation
     rewards = []
     actions = []
+    _log(f"[EPISODE START] task={task_id} variant={obs.variant_label} max_steps={obs.max_steps}")
     for _ in range(obs.max_steps):
         payload = policy.act(obs)
         action = OnnxAction(
@@ -142,9 +147,20 @@ async def run_episode(env: OnnxEnv, task_id: str, policy) -> dict:
         obs = step_result.observation
         rewards.append(float(step_result.reward or 0.0))
         actions.append(payload)
+        _log(
+            f"[STEP] task={task_id} step={obs.steps_taken} action={action.action_type}"
+            f"{'|'+action.slot_name if action.slot_name else ''}"
+            f"{'|'+action.patch_id if action.patch_id else ''}"
+            f" reward={float(step_result.reward or 0.0):.2f} score={float(obs.current_score):.2f}"
+            f" done={str(bool(step_result.done)).lower()}"
+        )
         policy.update(payload)
         if step_result.done:
             break
+    _log(
+        f"[EPISODE END] task={task_id} success={str(bool(obs.is_success)).lower()}"
+        f" final_score={float(obs.final_score or obs.current_score):.2f} steps={int(obs.steps_taken)}"
+    )
     return {
         "task_id": task_id,
         "variant_label": obs.variant_label,
@@ -204,9 +220,14 @@ async def main() -> None:
         heuristic_policy = HeuristicPolicy()
         trained_policy = HFGenerationPolicy(args.trained_model) if args.trained_model else None
 
+        _log("[POLICY] random baseline")
         random_results = await evaluate_policy(env, random_policy, args.episodes_per_task)
+        _log("[POLICY] heuristic baseline")
         heuristic_results = await evaluate_policy(env, heuristic_policy, args.episodes_per_task)
-        trained_results = await evaluate_policy(env, trained_policy, args.episodes_per_task) if trained_policy else []
+        trained_results = []
+        if trained_policy:
+            _log("[POLICY] trained policy")
+            trained_results = await evaluate_policy(env, trained_policy, args.episodes_per_task)
     finally:
         await env.close()
 
@@ -221,6 +242,7 @@ async def main() -> None:
         },
     }
     (out_dir / "eval_results.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    _log("[DONE] wrote outputs/eval_results.json")
 
 
 if __name__ == "__main__":
