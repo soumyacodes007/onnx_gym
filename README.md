@@ -1,6 +1,6 @@
 ---
 title: ONNX Deployment Surgeon Gym
-emoji: "🩺"
+emoji: "tool"
 colorFrom: green
 colorTo: blue
 sdk: docker
@@ -11,41 +11,49 @@ tags:
   - onnx
   - onnxruntime
   - edge-ai
-  - model-export
   - reinforcement-learning
 ---
 
 # ONNX Deployment Surgeon Gym
 
-An OpenEnv environment where an agent acts as an ONNX deployment engineer and repairs broken ONNX export bundles so they pass model checking, shape inference, and ONNX Runtime loading under real hardware profiles.
+An OpenEnv environment where an agent repairs broken ONNX deployment bundles using real checker, shape inference, and ONNX Runtime validation under realistic edge deployment profiles.
 
-This is a repair workflow, not a toy benchmark: the agent sees broken deployment artifacts, runtime-style diagnostics, memory budgets, profile constraints, and cascading export issues that appear only after earlier fixes land.
+## Why this environment is strong
 
-## Why this is strong
+- Real-world utility: this mirrors real export-debug and deployment triage workflows.
+- Deterministic and safe: tiny synthetic graphs, CPU-only, no large model downloads.
+- Rich RL signal: cascading failures, profile constraints, dependency-aware patches, workflow shaping rewards.
+- Phase-aware judge loop: rewards proper engineering flow (`triage -> investigate -> repair -> verify -> submit`).
+- Adversarial curriculum mode: weak-spot targeting with dynamic task/persona scheduling for harder training episodes.
+- Spec-focused: typed models, clean endpoints, web interface, Docker-first deployment.
 
-- **Real-world utility**: teams constantly debug ONNX export bundles, shape contracts, provider mismatches, and mobile memory budgets.
-- **Grounded in official tooling**: validation uses real `onnx.checker`, real `onnx.shape_inference`, and real ONNX Runtime CPU session creation.
-- **Safe runtime**: tiny synthetic graphs only; no heavy models, no remote downloads, no GPU assumptions.
-- **Novelity**: this is graph and deployment surgery, not another generic coding or SQL environment.
-- **Learnable but deep**: severity-weighted grading, visible vs hidden issues, ranked repair actions, and deterministic profile variants create genuine multi-step progress.
+## 9-task curriculum
 
-Official references:
-- [ONNX checker and shape inference docs](https://onnx.ai/onnx/repo-docs/ShapeInference.html)
-- [ONNX Runtime graph optimization levels](https://onnxruntime.ai/docs/performance/model-optimizations/graph-optimizations.html)
-- [ONNX Runtime quantization docs](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html)
+1. `label_head_dtype_repair`
+2. `embedding_ranker_contract`
+3. `vision_resize_mobile`
+4. `npu_gateway_surgery`
+5. `webnn_static_dynamic_pivot`
+6. `external_data_packaging_failure`
+7. `broken_quantized_cascade`
+8. `multi_stage_detection_bridge`
+9. `release_candidate_gate`
 
-## Task curriculum
+The tasks are grouped into warmup, runtime, and compound tiers in `server/curriculum.py`.
 
-### 1. Label Head DType Repair
-Fix a classifier export where ArgMax labels are declared with the wrong output type, the batch dimension is frozen, and the deployment variant changes between Android/iOS review contexts.
+## Finals features (kube-sre inspired)
 
-### 2. Embedding Ranker Contract
-Repair a retrieval export so token IDs use int64, sequence dimensions are symbolic, and ORT runtime settings match the serving profile for reranker and search-sidecar variants.
+- Curriculum controller with tier progression, weak-spot targeting, and dynamic difficulty scalar.
+- Adversarial designer (`server/adversarial_designer.py`) that selects hardest weak tasks and strict judge personas.
+- Step judge (`server/judge.py`) with workflow-order rewards/penalties and repeat-action penalties.
+- Episode transcript logging with mode/persona/workflow metadata to `outputs/onnx_episode_transcripts.jsonl`.
+- Procedural adversarial composition: each adversarial episode composes a deterministic 2-4 fault bundle with `incident_id` and `adversarial_seed`.
 
-### 3. Vision Resize Mobile
-Repair a mobile vision export with an invalid Resize signature, static batch dimensions, and a tight memory budget under different mobile delivery variants.
+## Reward semantics
 
-Each task family cycles through deterministic variants, so the same task id can surface slightly different hardware labels, budgets, and deployment contexts while staying validator-safe.
+- `final_score` is clamped to `[0,1]`.
+- per-step `reward` is signed (can be negative) and clamped to `[-1,1]`.
+- this keeps evaluator-compliant final scoring while preserving dense RL gradients.
 
 ## Action space
 
@@ -57,75 +65,37 @@ Each task family cycles through deterministic variants, so the same task id can 
 - `validate_bundle`
 - `submit_final`
 
-`apply_patch` uses a structured graph-surgery patch catalog so the environment stays deterministic and validator-safe while still exposing meaningful multi-step reasoning.
+## Environment variables for inference
 
-## Observation depth
+Mandatory variables required by the benchmark setup:
 
-The agent sees:
+- `API_BASE_URL`
+- `MODEL_NAME`
+- `HF_TOKEN`
 
-- graph config and IO contract
-- deployment profile and target execution provider
-- profile summary and deterministic variant label
-- checker / shape inference / ORT session results
-- visible vs hidden issues
-- conflict map and patch dependency graph
-- dynamic-dimension counts
-- node count, initializer count, and estimated activation footprint
-- estimated model size vs memory budget
-- raw ONNX / ORT style error logs
-- top blockers and "why not perfect yet" summary
-- ranked possible actions
+Optional:
 
-This makes the environment easy to debug in `/web` while still being rich enough for RL-style reward shaping.
+- `API_KEY` (preferred if available; script falls back to `HF_TOKEN`)
+- `ENV_BASE_URL` (default `http://localhost:7860`)
+- `LOCAL_IMAGE_NAME` (if running environment via `from_docker_image()`)
 
-## Reward design
+`inference.py` is in the project root and uses OpenAI Client for LLM calls.
 
-Final and intermediate scores stay in `(0, 1)` and combine:
-
-- severity-weighted requirement resolution
-- endpoint coverage across checker, shape inference, and ORT loading
-- efficiency bonus for solving with fewer steps
-- small penalties for profile conflicts that would still break deployment
-
-That gives dense signal without making the task gameable.
-
-## Why judges should care
-
-This environment targets a real deployment engineering workflow:
-
-- exported graph is syntactically valid
-- inferred shapes match serving expectations
-- ORT can actually create a session on the target provider
-- memory/profile constraints are respected
-
-That is exactly the kind of task an edge-agent or export-repair assistant should be trained on.
-
-## Local run
+## Local quickstart
 
 ```bash
 uv sync --frozen --no-dev
 uv run uvicorn server.app:app --host 0.0.0.0 --port 7860
 ```
 
-Open:
-- `http://localhost:7860/web`
+Open web UI at `http://localhost:7860/web`.
 
-## Inference script
-
-The root `inference.py`:
-- uses the OpenAI client,
-- reads `API_KEY` (preferred) or `HF_TOKEN` (fallback), plus `API_BASE_URL`, `MODEL_NAME`, and optional `ENV_BASE_URL` / `LOCAL_IMAGE_NAME`,
-- emits strict `[START]`, `[STEP]`, and `[END]` logs.
-
-Expected environment variables:
+Adversarial mode:
 
 ```bash
-API_KEY=...
-API_BASE_URL=https://router.huggingface.co/v1
-MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+set GYM_MODE=adversarial
+uv run uvicorn server.app:app --host 0.0.0.0 --port 7860
 ```
-
-If your runner still exposes `HF_TOKEN` instead of `API_KEY`, `inference.py` accepts that as a fallback.
 
 ## Docker
 
@@ -134,17 +104,93 @@ docker build -t onnx-surgeon .
 docker run -p 7860:7860 onnx-surgeon
 ```
 
-## Hugging Face Spaces
+The Docker image includes:
+- Space runtime (`server/*`, `inference.py`)
+- Trainer utilities (`train.py`, `grpo_train.py`, `eval.py`, `generate_demos.py`, `split_demos.py`, `train_pipeline.py`)
 
-Recommended secrets:
-- `API_KEY`
-- `HF_TOKEN` (only if your platform provides this instead of `API_KEY`)
-- `API_BASE_URL`
-- `MODEL_NAME`
+Note: runtime image installs non-dev dependencies by default. For GRPO training dependencies (`trl`, `peft`), use trainer runtime setup below.
 
-## Validation checklist
+## Validation
 
-- `openenv validate`
-- `python -m pytest`
-- local `/web` smoke test
-- local `python inference.py`
+```bash
+openenv validate
+python -m pytest
+python inference.py
+```
+
+## Training workflow
+
+### Step 1: Generate demonstrations
+
+```bash
+python generate_demos.py --env-url http://localhost:7860 --episodes 180 --out outputs/demo_train.jsonl
+```
+
+### Step 2: Train SFT policy
+
+```bash
+python split_demos.py --input outputs/demo_train.jsonl --train-out outputs/train.jsonl --eval-out outputs/eval.jsonl
+
+python train.py \
+  --train-file outputs/train.jsonl \
+  --eval-file outputs/eval.jsonl \
+  --model-id Qwen/Qwen2.5-0.5B-Instruct \
+  --output-dir outputs/onnx-sft
+```
+
+### Step 3: Evaluate baseline vs trained model
+
+```bash
+python eval.py --env-url http://localhost:7860 --trained-model outputs/onnx-sft --out-dir outputs/eval
+```
+
+### One-command pipeline (recommended)
+
+`train_pipeline.py` runs generation, split, train, and eval end to end.
+
+```bash
+python train_pipeline.py \
+  --env-url http://localhost:7860 \
+  --episodes 180 \
+  --model-id Qwen/Qwen2.5-0.5B-Instruct \
+  --epochs 1
+```
+
+## GRPO training (round-2 finals)
+
+`grpo_train.py` performs online rollouts against the live environment and trains with TRL GRPO.
+
+```bash
+pip install -e ".[train]"
+set GYM_MODE=adversarial
+
+# terminal 1
+uv run uvicorn server.app:app --host 0.0.0.0 --port 7860
+
+# terminal 2
+python grpo_train.py \
+  --env-url http://localhost:7860 \
+  --model-id Qwen/Qwen2.5-0.5B-Instruct \
+  --dataset-size 60 \
+  --num-generations 4 \
+  --max-turns 12
+```
+
+## Colab run order
+
+1. Start the env server in one terminal/session.
+2. Run:
+
+```bash
+pip install -U datasets transformers accelerate matplotlib trl peft
+python train_pipeline.py --env-url http://localhost:7860 --episodes 180 --epochs 1
+```
+
+Artifacts:
+
+- `outputs/training/demos.jsonl`
+- `outputs/training/train.jsonl`
+- `outputs/training/eval.jsonl`
+- `outputs/training/sft-model/`
+- `outputs/training/eval/eval_results.json`
+- `outputs/training/pipeline_summary.json`

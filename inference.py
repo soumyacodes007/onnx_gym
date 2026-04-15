@@ -11,13 +11,16 @@ from openai import OpenAI
 try:
     from models import OnnxAction
     from client import OnnxEnv
+    from solver import deterministic_action
 except ModuleNotFoundError:
     try:
         from onnx_env import OnnxAction, OnnxEnv
+        from onnx_env.solver import deterministic_action
     except ModuleNotFoundError:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from models import OnnxAction
         from client import OnnxEnv
+        from solver import deterministic_action
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
@@ -25,10 +28,20 @@ API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
 ENV_BASE_URL = os.getenv("ENV_BASE_URL")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 BENCHMARK = 'onnx_deployment_surgeon_gym'
-TASK_IDS = ['label_head_dtype_repair', 'embedding_ranker_contract', 'vision_resize_mobile']
+TASK_IDS = [
+    'label_head_dtype_repair',
+    'embedding_ranker_contract',
+    'vision_resize_mobile',
+    'npu_gateway_surgery',
+    'webnn_static_dynamic_pivot',
+    'external_data_packaging_failure',
+    'broken_quantized_cascade',
+    'multi_stage_detection_bridge',
+    'release_candidate_gate',
+]
 SUCCESS_THRESHOLD = 0.95
-MIN_STRICT_SCORE = 0.01
-MAX_STRICT_SCORE = 0.99
+MIN_STRICT_SCORE = 0.0
+MAX_STRICT_SCORE = 1.0
 
 SYSTEM_PROMPT = textwrap.dedent(
     """
@@ -121,51 +134,9 @@ def _find_patch(observation: Any, patch_id: str) -> str:
     return ''
 
 
-def _deterministic_policy(observation: Any) -> dict[str, Any] | None:
-    if observation.checks_run > 0 and observation.current_score >= observation.success_threshold:
-        return {'action_type': 'submit_final', 'slot_name': '', 'patch_id': '', 'rationale': 'validation already passed target'}
-    if observation.steps_taken == 0:
-        return {'action_type': 'inspect_task', 'slot_name': '', 'patch_id': '', 'rationale': 'read deployment brief first'}
-
-    issue_to_patches = {
-        'label_dtype_mismatch': ['set_label_output_int64'],
-        'static_batch_only': ['set_dynamic_batch'],
-        'low_opset': ['set_opset_17'],
-        'needs_extended_optim': ['set_extended_optim', 'set_all_optim'],
-        'token_ids_not_int64': ['set_input_ids_int64'],
-        'needs_dynamic_sequence': ['set_dynamic_sequence'],
-        'memory_budget_exceeded': ['prune_debug_initializer'],
-        'resize_has_scales_and_sizes': ['resize_sizes_only'],
-    }
-    for issue in observation.visible_issues:
-        for patch_id in issue_to_patches.get(issue.get('issue_id', ''), []):
-            slot = _find_patch(observation, patch_id)
-            if slot:
-                return {'action_type': 'apply_patch', 'slot_name': slot, 'patch_id': patch_id, 'rationale': f"address issue: {issue.get('issue_id', '')}"}
-
-    missing = ' | '.join(observation.missing_requirements).lower()
-    wanted = [
-        ('int64', 'set_label_output_int64'),
-        ('dynamic batch', 'set_dynamic_batch'),
-        ('opset 17', 'set_opset_17'),
-        ('extended graph optimization', 'set_extended_optim'),
-        ('token ids', 'set_input_ids_int64'),
-        ('sequence dim', 'set_dynamic_sequence'),
-        ('memory budget', 'prune_debug_initializer'),
-        ('resize', 'resize_sizes_only'),
-        ('all graph optimizations', 'set_all_optim'),
-    ]
-    for needle, patch_id in wanted:
-        if needle in missing:
-            slot = _find_patch(observation, patch_id)
-            if slot:
-                return {'action_type': 'apply_patch', 'slot_name': slot, 'patch_id': patch_id, 'rationale': f'address requirement: {needle}'}
-    return None
-
-
 def _call_llm(client: OpenAI | None, observation: Any) -> dict[str, Any]:
     if client is None:
-        deterministic = _deterministic_policy(observation)
+        deterministic = deterministic_action(observation)
         if deterministic is not None:
             return deterministic
         return {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'llm unavailable'}
@@ -181,7 +152,7 @@ def _call_llm(client: OpenAI | None, observation: Any) -> dict[str, Any]:
         end = text.rfind('}') + 1
         payload = json.loads(text[start:end])
     except Exception:
-        deterministic = _deterministic_policy(observation)
+        deterministic = deterministic_action(observation)
         if deterministic is not None:
             return deterministic
         return {'action_type': 'validate_bundle', 'slot_name': '', 'patch_id': '', 'rationale': 'fallback'}

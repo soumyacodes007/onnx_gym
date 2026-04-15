@@ -19,6 +19,14 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
 ]
+train = [
+    "datasets>=2.20.0",
+    "transformers>=4.44.0",
+    "accelerate>=0.33.0",
+    "matplotlib>=3.8.0",
+    "trl>=0.10.1",
+    "peft>=0.12.0",
+]
 
 [project.scripts]
 server = "onnx_env.server.app:main"

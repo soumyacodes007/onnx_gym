@@ -17,7 +17,7 @@ ActionType = Literal[
 ]
 
 
-MIN_STRICT_SCORE = 0.01
+MIN_SCORE = 0.0
 
 
 class OnnxAction(Action):
@@ -75,15 +75,24 @@ class OnnxObservation(Observation):
     checks_run: int = Field(default=0)
     steps_taken: int = Field(default=0)
     max_steps: int = Field(default=0)
-    current_score: float = Field(default=MIN_STRICT_SCORE)
-    best_score: float = Field(default=MIN_STRICT_SCORE)
+    current_score: float = Field(default=MIN_SCORE)
+    best_score: float = Field(default=MIN_SCORE)
     success_threshold: float = Field(default=0.95)
     is_success: bool = Field(default=False)
     message: str = Field(default="")
     last_action_error: str = Field(default="")
-    final_score: float = Field(default=MIN_STRICT_SCORE)
+    final_score: float = Field(default=MIN_SCORE)
     possible_actions: list[str] = Field(default_factory=list)
     last_report: dict[str, Any] = Field(default_factory=dict)
+    curriculum_stats: dict[str, Any] = Field(default_factory=dict)
+    workflow_phase: str = Field(default="triage")
+    workflow_feedback: str = Field(default="")
+    judge_persona: str = Field(default="junior")
+    episode_mode: str = Field(default="standard")
+    incident_brief: str = Field(default="")
+    incident_id: str = Field(default="")
+    adversarial_seed: int = Field(default=0)
+    fault_bundle: list[str] = Field(default_factory=list)
 
 
 class OnnxState(State):
@@ -96,8 +105,19 @@ class OnnxState(State):
     selected_patches: dict[str, str] = Field(default_factory=dict)
     patch_history: list[dict[str, Any]] = Field(default_factory=list)
     checks_run: int = Field(default=0)
-    best_score: float = Field(default=MIN_STRICT_SCORE)
+    best_score: float = Field(default=MIN_SCORE)
     submitted: bool = Field(default=False)
     last_report: dict[str, Any] = Field(default_factory=dict)
     seen_inspections: list[str] = Field(default_factory=list)
     cumulative_reward: float = Field(default=0.0)
+    curriculum_stats: dict[str, Any] = Field(default_factory=dict)
+    action_history: list[str] = Field(default_factory=list)
+    phase_cursor: int = Field(default=0)
+    workflow_feedback: str = Field(default="")
+    workflow_phase: str = Field(default="triage")
+    judge_persona: str = Field(default="junior")
+    episode_mode: str = Field(default="standard")
+    incident_brief: str = Field(default="")
+    incident_id: str = Field(default="")
+    adversarial_seed: int = Field(default=0)
+    fault_bundle: list[str] = Field(default_factory=list)

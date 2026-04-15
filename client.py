@@ -11,7 +11,7 @@ except ImportError:
     from models import OnnxAction, OnnxObservation, OnnxState
 
 
-MIN_STRICT_SCORE = 0.01
+MIN_SCORE = 0.0
 
 
 class OnnxEnv(EnvClient[OnnxAction, OnnxObservation, OnnxState]):
@@ -73,15 +73,24 @@ class OnnxEnv(EnvClient[OnnxAction, OnnxObservation, OnnxState]):
             checks_run=obs_data.get("checks_run", 0),
             steps_taken=obs_data.get("steps_taken", 0),
             max_steps=obs_data.get("max_steps", 0),
-            current_score=obs_data.get("current_score", MIN_STRICT_SCORE),
-            best_score=obs_data.get("best_score", MIN_STRICT_SCORE),
+            current_score=obs_data.get("current_score", MIN_SCORE),
+            best_score=obs_data.get("best_score", MIN_SCORE),
             success_threshold=obs_data.get("success_threshold", 0.95),
             is_success=obs_data.get("is_success", False),
             message=obs_data.get("message", ""),
             last_action_error=obs_data.get("last_action_error", ""),
-            final_score=obs_data.get("final_score", MIN_STRICT_SCORE),
+            final_score=obs_data.get("final_score", MIN_SCORE),
             possible_actions=obs_data.get("possible_actions", []),
             last_report=obs_data.get("last_report", {}),
+            curriculum_stats=obs_data.get("curriculum_stats", {}),
+            workflow_phase=obs_data.get("workflow_phase", "triage"),
+            workflow_feedback=obs_data.get("workflow_feedback", ""),
+            judge_persona=obs_data.get("judge_persona", "junior"),
+            episode_mode=obs_data.get("episode_mode", "standard"),
+            incident_brief=obs_data.get("incident_brief", ""),
+            incident_id=obs_data.get("incident_id", ""),
+            adversarial_seed=obs_data.get("adversarial_seed", 0),
+            fault_bundle=obs_data.get("fault_bundle", []),
             done=payload.get("done", False),
             reward=payload.get("reward"),
             metadata=obs_data.get("metadata", {}),
@@ -101,9 +110,20 @@ class OnnxEnv(EnvClient[OnnxAction, OnnxObservation, OnnxState]):
             selected_patches=payload.get("selected_patches", {}),
             patch_history=payload.get("patch_history", []),
             checks_run=payload.get("checks_run", 0),
-            best_score=payload.get("best_score", MIN_STRICT_SCORE),
+            best_score=payload.get("best_score", MIN_SCORE),
             submitted=payload.get("submitted", False),
             last_report=payload.get("last_report", {}),
             seen_inspections=payload.get("seen_inspections", []),
             cumulative_reward=payload.get("cumulative_reward", 0.0),
+            curriculum_stats=payload.get("curriculum_stats", {}),
+            action_history=payload.get("action_history", []),
+            phase_cursor=payload.get("phase_cursor", 0),
+            workflow_feedback=payload.get("workflow_feedback", ""),
+            workflow_phase=payload.get("workflow_phase", "triage"),
+            judge_persona=payload.get("judge_persona", "junior"),
+            episode_mode=payload.get("episode_mode", "standard"),
+            incident_brief=payload.get("incident_brief", ""),
+            incident_id=payload.get("incident_id", ""),
+            adversarial_seed=payload.get("adversarial_seed", 0),
+            fault_bundle=payload.get("fault_bundle", []),
         )

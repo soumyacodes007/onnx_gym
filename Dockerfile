@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends     curl     li
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock openenv.yaml README.md __init__.py client.py models.py tasks.py inference.py requirements.txt ./
+COPY eval.py generate_demos.py grpo_train.py onnx_repair_cli.py plot_rewards.py solver.py split_demos.py train.py train_pipeline.py ./
 COPY server ./server
 COPY tests ./tests
 

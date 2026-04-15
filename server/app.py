@@ -51,7 +51,7 @@ async def web_manifest():
         {
             "name": "ONNX Deployment Surgeon Gym",
             "short_name": "OnnxSurgeon",
-            "description": "Repair broken ONNX deployment bundles for mobile, retrieval, and vision profiles.",
+            "description": "Repair ONNX deployment incidents across mobile, browser, packaging, quantized, and release profiles.",
             "start_url": "/web/",
             "display": "standalone",
             "background_color": "#0f172a",

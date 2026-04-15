@@ -4,5 +4,14 @@ type: space
 runtime: fastapi
 app: server.app:app
 port: 7860
-description: "Repair broken ONNX deployment bundles for mobile, retrieval, and vision profiles"
-tasks: [label_head_dtype_repair, embedding_ranker_contract, vision_resize_mobile]
+description: "Repair broken ONNX deployment bundles across mobile, browser, packaging, quantized, and release-gate profiles"
+tasks:
+  - label_head_dtype_repair
+  - embedding_ranker_contract
+  - vision_resize_mobile
+  - npu_gateway_surgery
+  - webnn_static_dynamic_pivot
+  - external_data_packaging_failure
+  - broken_quantized_cascade
+  - multi_stage_detection_bridge
+  - release_candidate_gate
